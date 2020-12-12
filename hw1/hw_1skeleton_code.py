@@ -24,6 +24,12 @@ def feature_normalization(train, test):
         test_normalized - test set after normalization
     """
     # TODO
+    train_max = np.amax(train, axis=1)
+    train_min = np.amin(train, axis=1)
+    train_normalized = (train - train_min)/(train_max - train_min)
+    test_normalized = (test - train_min)/(train_max - train_min)
+    test_normalized = np.clip(test_normalized)
+    return train_normalized, test_normalized
 
 
 #######################################
@@ -42,6 +48,7 @@ def compute_square_loss(X, y, theta):
     """
     loss = 0 #Initialize the average square loss
     #TODO
+
 
 
 #######################################
