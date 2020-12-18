@@ -182,6 +182,11 @@ def compute_regularized_square_loss_gradient(X, y, theta, lambda_reg):
         grad - gradient vector, 1D numpy array of size (num_features)                     d*1
     """
     # TODO
+    num_features = X.shape[1]
+    grad = (X.transpose() @ X @ theta) - X.transpose() @ y
+    grad = grad / num_features + 2 * lambda_reg * theta
+    return grad
+
 
 
 #######################################
@@ -205,7 +210,12 @@ def regularized_grad_descent(X, y, alpha=0.05, lambda_reg=10 ** -2, num_step=100
     theta_hist = np.zeros((num_step + 1, num_features))  # Initialize theta_hist
     loss_hist = np.zeros(num_step + 1)  # Initialize loss_hist
     # TODO
-
+    for i in range(1, num_step + 1):
+        loss_hist[i - 1] = compute_square_loss(X, y, theta_hist[i - 1])
+        theta = theta - alpha * (compute_regularized_square_loss_gradient(X, y, theta_hist[i - 1])).transpose()
+        theta_hist[i] = theta
+        print(loss_hist[i-1])
+    return theta_hist, loss_hist
 
 #######################################
 ### Stochastic gradient descent
@@ -213,7 +223,7 @@ def stochastic_grad_descent(X, y, alpha=0.01, lambda_reg=10 ** -2, num_epoch=100
     """
     In this question you will implement stochastic gradient descent with regularization term
 
-    Args:
+    Args:  
         X - the feature vector, 2D numpy array of size (num_instances, num_features)
         y - the label vector, 1D numpy array of size (num_instances)
         alpha - string or float, step size in gradient descent
@@ -235,6 +245,7 @@ def stochastic_grad_descent(X, y, alpha=0.01, lambda_reg=10 ** -2, num_epoch=100
     theta_hist = np.zeros((num_epoch, num_instances, num_features))  # Initialize theta_hist
     loss_hist = np.zeros((num_epoch, num_instances))  # Initialize loss_hist
     # TODO
+
 
 
 def main():
