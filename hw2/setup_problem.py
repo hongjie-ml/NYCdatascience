@@ -103,7 +103,7 @@ def load_problem(file_name):
                                 data["x_test"], data["y_test"])
 
 def main():
-    lasso_data_fname = "lasso_data.pickle"
+    lasso_data_fname = "./hw2/lasso_data.pickle"
     LOAD_PROBLEM=True
     GENERATE_PROBLEM=False
     WRITE_PROBLEM=False
