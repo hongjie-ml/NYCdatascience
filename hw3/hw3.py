@@ -7,6 +7,8 @@ import numpy as np
 
 neg_path = './data/neg'
 pos_path = './data/pos'
+
+
 ### 4. The data ###
 # input txt dataset
 
@@ -30,6 +32,7 @@ def read_file(file_path, label):
         review_all.append(review)
     return review_all
 
+
 neg_review = read_file(neg_path, -1)
 pos_review = read_file(pos_path, 1)
 
@@ -39,9 +42,7 @@ training_data = all_data[:1500]
 validation_data = all_data[1500:2000]
 
 
-
 ### Sparse Representations ###
-
 
 def create_sparse_list(dataset):
     x = []
@@ -59,15 +60,13 @@ def create_sparse_list(dataset):
     return x_sparse, y
 
 
-
-
 ### Pegasos algorithm ###
-def updating_grad_pegasos(x, y, weight, lambda_reg, lr):
+def updating_grad_pegasos(x, y, weight, lambda_reg):
     """
 
     Args:
-        x: dict or Counter class  word: frequency
-        y: class -1 or 1
+        x: list for all data, each one is a counter data type
+        y: list for the label, each one is a list with a label,  y[i][0]
         weight: dict or Counter class word:frequency
         lambda_reg: float
 
@@ -75,14 +74,16 @@ def updating_grad_pegasos(x, y, weight, lambda_reg, lr):
         weight_updated
 
     """
-    weight_1 = weight.copy()
-    for v, fre in weight_1.items():
-        weight_1[v] = weight_1[v] * (1 - lr * lambda_reg)
-    if y * dotProduct(weight, x) < 1:
-        increment(weight_1, lr * y, x)
-    else:
-        pass
-    return weight_1
+    t = 0
+    for i in range(len(x)):
+        t += 1
+        lr = 1 / (t * lambda_reg)
+        if y[i][0] * dotProduct(weight, x[i]) < 1:
+            increment(weight, -lr * lambda_reg, weight)
+            increment(weight, lr * y[i][0], x[i])
+        else:
+            increment(weight, -lr * lambda_reg, weight)
+    return weight
 
 
 def compute_pegasos_loss(x, y, weight, lambda_reg):
@@ -97,32 +98,25 @@ def compute_pegasos_loss(x, y, weight, lambda_reg):
         loss: float        yw.tx
 
     """
-    reg_term = np.sum([weight[i] ** 2 for i in weight]) * lambda_reg/2.0
-    hinge_term = max(0, 1-y*dotProduct(weight, x))
-    return reg_term+hinge_term
-
-
-train_x_sparse, train_y = create_sparse_list(training_data)
-val_x_sparse, val_y = create_sparse_list(validation_data)
+    reg_term = np.sum([weight[i] ** 2 for i in weight]) * lambda_reg / 2.0
+    hinge_term = max(0, 1 - y * dotProduct(weight, x))
+    return reg_term + hinge_term
 
 
 def compute_pegasos_gradient(x, y, weight, lambda_reg):
     weight_using = weight.copy()
-    for vac, fre in weight.item():
+    for vac, fre in weight.items():
         weight_using[vac] *= lambda_reg
-    if y * dotProduct(weight,x) < 1:
+    if y * dotProduct(weight, x) < 1:
         increment(weight_using, -y, x)
     else:
         pass
     return weight_using
 
 
-
-
-
 def pegasos_gradient_checker(x, y, weight, lambda_reg, epsilon=0.01, tolerance=1e-4):
     true_gradient = compute_pegasos_gradient(x, y, weight, lambda_reg)
-    weight_checking = weight.copy
+    weight_checking = weight.copy()
     increment(weight_checking, 0, x)
     approx_grad = weight_checking.copy()
 
@@ -133,67 +127,115 @@ def pegasos_gradient_checker(x, y, weight, lambda_reg, epsilon=0.01, tolerance=1
         weight_minus = weight_checking.copy()
         weight_minus[word] -= epsilon
         loss_minus = compute_pegasos_loss(x, y, weight_minus, lambda_reg)
-        approx_grad[word] = (loss_plus - loss_minus) / (2*epsilon)
+        approx_grad[word] = (loss_plus - loss_minus) / (2 * epsilon)
     distance = np.sum([(true_gradient[i] - approx_grad[i]) ** 2 for i in approx_grad])
     return distance < tolerance
 
 
+def accuracy_rate(y, weight, x):
+    accurate = 0
+    total = len(y)
+    for i in range(len(x)):
+        if np.sign(y[i][0]) == np.sign(dotProduct(weight, x[i])):
+            accurate += 1
+
+    accuraterate = accurate / total
+    return accuraterate
 
 
-max_epoch = 20
+train_x_sparse, train_y = create_sparse_list(training_data)
+val_x_sparse, val_y = create_sparse_list(validation_data)
+
+max_epoch = 1
 epoch = 0
-t = 0
-lambda_reg = 20
 weight_updated = collections.Counter()
-avg_train_loss = []
+"""avg_train_loss = []
 avg_val_loss = []
+weight = []
+train_accuracy = []
+val_accuracy = []"""
 while epoch < max_epoch:
-    t += 1
     epoch += 1
-    lr = 1/(t * lambda_reg)
-    train_loss = []
-    val_loss = []
-
-    for i in range(len(train_x_sparse)):
-        weight_updated = updating_grad_pegasos(train_x_sparse[i], train_y[i][0], weight_updated, lambda_reg, lr)
+    weight_updated = updating_grad_pegasos(train_x_sparse, train_y, weight_updated, 0.1)
 
     for i in range(len(train_x_sparse)):
         train_loss.append(compute_pegasos_loss(train_x_sparse[i], train_y[i][0], weight_updated, lambda_reg))
-        avg_train_loss.append(sum(train_loss)/len(train_loss))
+    avg_train_loss.append(sum(train_loss) / len(train_loss))
 
     for i in range(len(val_x_sparse)):
         val_loss.append(compute_pegasos_loss(val_x_sparse[i], val_y[i][0], weight_updated, lambda_reg))
-        avg_val_loss.append(sum(val_loss)/len(val_loss))
+    avg_val_loss.append(sum(val_loss) / len(val_loss))
 
-    print(f'Epoch {epoch} completed          Train Loss:{avg_train_loss[epoch-1]}   Val Loss:{avg_val_loss[epoch-1]}')
+    train_accuracy.append(accuracy_rate(train_y, weight_updated, train_x_sparse))
+    val_accuracy.append(accuracy_rate(val_y, weight_updated, val_x_sparse))
 
-weight_updated = updating_grad_pegasos(train_x_sparse[0], train_y[0][0], weight_updated, lambda_reg, 0.01)
-compute_pegasos_loss(train_x_sparse[1], train_y[1][0], weight_updated, lambda_reg)
+    print(
+        f'Epoch {epoch} completed Train Loss:{avg_train_loss[epoch - 1]}  |Val Loss:{avg_val_loss[epoch - 1]}|Train_acc:{train_accuracy[epoch - 1]}|Val_acc:{val_accuracy[epoch - 1]}')
+
+import matplotlib.pyplot as plt
+
+train_list = []
+val_list = []
+max_epoch = 2
+epoch = 0
+for i in range(-5, 5):
+    lambda_reg = 10 ** i
+    print('==============')
+    print('lambda= ', lambda_reg)
+    epoch = 0
+    weight_updated = collections.Counter()
+    while epoch < max_epoch:
+        epoch += 1
+        weight_updated = updating_grad_pegasos(train_x_sparse, train_y, weight_updated, lambda_reg)
+    train_acc = accuracy_rate(train_y, weight_updated, train_x_sparse)
+    val_acc = accuracy_rate(val_y, weight_updated, val_x_sparse)
+    train_list.append(train_acc)
+    val_list.append(val_acc)
+
+plt.plot(range(-5, 5), train_list, label='train accuracy')
+plt.plot(range(-5, 5), val_list, label='validation accuracy')
+plt.xlabel("log(lambda)")
+plt.ylabel("accuracy")
+plt.legend()
+plt.show()
 
 
-increment(weight_updated, 0.01 * train_y[0][0], train_x_sparse[0])
-
-weight_updated = updating_grad_pegasos(train_x_sparse[5], train_y[5][0], weight_updated, lambda_reg, 0.001)
-
-
-for i in range(len(train_x_sparse)):
-    weight_updated = updating_grad_pegasos(train_x_sparse[i], train_y[i][0], weight_updated, lambda_reg, 0.001)
-
-
-
-compute_pegasos_loss(train_x_sparse[1], train_y[1][0], weight_updated, 100)
+def updating_pegasos_fast(x, y, weight, lambda_reg, lr, s):
+    for i in range(len(x)):
+        s = (1 - lr * lambda_reg) * s
+        if y * dotProduct(weight, x) < 1:
+            increment(weight, lr * y / s, x)
+    w = dict()
+    increment(w, s, weight)
+    return w
 
 
-val_predict = []
-for item in range(len(val_x_sparse)):
-    val_predict.append(dotProduct(weight_updated, val_x_sparse[item]))
+train_list = []
+val_list = []
+t = 1
+max_epoch = 2
+epoch = 0
+s = 1
+weight_updated = collections.Counter()
+for i in range(-5, 5):
+    lambda_reg = 10 ** (i)
+    print('==============')
+    print('lambda= ', lambda_reg)
+    epoch = 0
+    s = 1
+    t = 1
+    while epoch < max_epoch:
+        t += 1
+        epoch += 1
+        lr = 1 / (t * lambda_reg)
+        for i in range(len(train_x_sparse)):
+            weight_updated = updating_pegasos_fast(train_x_sparse[i], train_y[i][0], weight_updated, lambda_reg, lr,
+                                                   s=s)
+    train_acc = accuracy_rate(train_y, weight_updated, train_x_sparse)
+    val_acc = accuracy_rate(val_y, weight_updated, val_x_sparse)
+    train_list.append(train_acc)
+    val_list.append(val_acc)
+
+accuracy_rate(val_y, weight_updated, val_x_sparse)
 
 
-compute_pegasos_loss(val_x_sparse[0], val_y[0][0], weight_updated, 100)
-
-count = 0
-for item in range(len(train_x_sparse)):
-    if train_y[item][0] * dotProduct(weight_updated, train_x_sparse[item]) > 0:
-        count += 1
-    else:
-        pass
