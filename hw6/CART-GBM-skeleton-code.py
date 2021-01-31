@@ -58,6 +58,9 @@ class Decision_Tree(BaseEstimator):
         self.depth = depth
         self.min_sample = min_sample
         self.max_depth = max_depth
+        self.split_id = 0
+        self.split_value = 0
+
 
 
     def fit(self, X, y=None):
@@ -81,38 +84,38 @@ class Decision_Tree(BaseEstimator):
         if sample < self.min_sample or self.depth == self.max_depth:
             self.is_leaf = True
             self.value = self.leaf_value_estimator(y)
-
         else:
             self.is_leaf = False
-            split_index = None
-            splitted = 0
+            split_index = 0
+            bestIdx = -1
+            bestLoss = 0
+            split_idx = None
+
             for feature_n in range(feature):
-
-
-                for num in range(len(X[:,feature_n])):
-
-
-                    left_criteria = self.split_loss_function(y[:num,feature_n])
-                    right_criteria = self.split_loss_function(y[num:,feature_n])
+                sorted_idx = np.argsort(X[:, feature_n])
+                x_sorted = X[sorted_idx]
+                y_sorted = y[sorted_idx]
+                for num in range(sample - 1):
+                    left_criteria = self.split_loss_function(y_sorted[:num+1])
+                    right_criteria = self.split_loss_function(y_sorted[num+1:])
                     total_criteria = left_criteria + right_criteria
+                    if total_criteria < bestLoss:
+                        bestIdx = num
+                        bestLoss = total_criteria
+                        self.split_id = feature_n
+                        self.split_value = (x_sorted[num: feature_n] + x_sorted[num: feature_n])/2
+                        split_idx = num
+            if split_idx is not None:
+                self.left = Decision_Tree(self.split_loss_function, self.leaf_value_estimator, self.depth+1,
+                                          self.min_sample, self.max_depth)
+                self.right = Decision_Tree(self.split_loss_function, self.leaf_value_estimator, self.depth+1,
+                                           self.min_sample, self.max_depth)
+                X_new = X[bestIdx]
+                y_new = y[bestIdx]
+                self.left.fit(X_new[:split_idx+1], y_new[:split_idx+1])
+                self.right.fit(X_new[split_idx+1:], y_new[split_idx+1:])
 
-                    if total_criteria <  1e7:
-                        self.split_id = num
-                        self.split_value = (X[num, feature_n] + X[num+1, feature_n])/2
-                        split_index = num
-                        splitted = 1
-
-                if splitted != 0:
-                    self.left = Decision_Tree(self.split_loss_function, self.leaf_value_estimator, self.depth+1,
-                                self.min_sample, self.max_depth)
-                    self.right = Decision_Tree(self.split_loss_function, self.leaf_value_estimator, self.depth+1,
-                                 self.min_sample, self.max_depth)
-                    X_new = X[splitted]
-                    y_new = y[splitted]
-                    self.left.fit(X_new[:split_index], y_new[:split_index])
-                    self.right.fit(X_new[split_index:], y_new[split_index:])
-
-            return self
+        return self
 
     def predict_instance(self, instance):
         '''
@@ -182,7 +185,6 @@ def most_common_label(y):
 
 
 class Classification_Tree(BaseEstimator, ClassifierMixin):
-
     loss_function_dict = {
         'entropy': compute_entropy,
         'gini': compute_gini
@@ -206,10 +208,13 @@ class Classification_Tree(BaseEstimator, ClassifierMixin):
         return value
 
 
-# # Decision Tree Boundary
+
+
 
 # In[ ]:
 
+
+# # Decision Tree Boundary
 
 # Training classifiers with different depth
 clf1 = Classification_Tree(max_depth=1)
@@ -395,7 +400,6 @@ def pseudo_residual_L2(train_target, train_predict):
 
 # In[ ]:
 
-
 class gradient_boosting():
     '''
     Gradient Boosting regressor class
@@ -414,18 +418,32 @@ class gradient_boosting():
         self.learning_rate = learning_rate
         self.min_sample = min_sample
         self.max_depth = max_depth
-    
+        self.model = []
+
+
     def fit(self, train_data, train_target):
         '''
         Fit gradient boosting model
         '''
+        prediction = np.zeros(train_target.shape[0])
+        for i in range(self.n_estimator):
+            residual = pseudo_residual_L2(train_target.reshape(-1), prediction)
+            hm = DecisionTreeRegressor(criterion='mse', max_depth=self.max_depth, min_samples_leaf=self.min_sample)
+            hm.fit(train_data, residual)
+            prediction = prediction + self.learning_rate * hm.predict(train_data)
+            self.model.append(hm)
         # Your code goes here 
-    
+
     def predict(self, test_data):
         '''
         Predict value
         '''
         # Your code goes here
+        prediction = np.zeros(test_data.shape[0])
+        for i in range(len(self.model)):
+            prediction += self.learning_rate * self.model[i].predict(test_data)
+        return prediction
+
 
 
 # # 2-D GBM visualization - SVM data
@@ -459,6 +477,12 @@ for idx, i, tt in zip(product([0, 1], [0, 1, 2]),
 # # 1-D GBM visualization - KRR data
 
 # In[ ]:
+
+data_krr_train = np.loadtxt('./hw6/krr-train.txt')
+data_krr_test = np.loadtxt('./hw6/krr-test.txt')
+x_krr_train, y_krr_train = data_krr_train[:,0].reshape(-1,1),data_krr_train[:,1].reshape(-1,1)
+x_krr_test, y_krr_test = data_krr_test[:,0].reshape(-1,1),data_krr_test[:,1].reshape(-1,1)
+
 
 
 plot_size = 0.001
